@@ -7,7 +7,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <style>
-    * {box-sizing:border-box;margin:0;padding:0;}
+    *{box-sizing:border-box;margin:0;padding:0;}
     body{background:#0a0010;font-family:system-ui,sans-serif;}
     input,select{background:#0a0010;border:1px solid #3b0764;border-radius:6px;color:white;padding:6px 8px;font-size:12px;width:100%;outline:none;}
     input:focus{border-color:#c084fc;}
@@ -18,10 +18,8 @@
     .hist-date{color:#c084fc;font-weight:700;font-size:11px;margin-bottom:4px;}
     .hist-block{background:#0a0010;border-radius:8px;padding:8px 10px;margin-bottom:8px;}
     .del{background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:0 2px;}
-    /* Back button */
     .back-btn{display:inline-flex;align-items:center;gap:6px;background:#1a0030;border:1px solid #3b0764;border-radius:8px;color:#c084fc;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;text-decoration:none;margin-bottom:12px;}
     .back-btn:active{opacity:0.8;}
-    /* Calendar picker */
     .cal-picker{background:#1a0030;border:1px solid #3b0764;border-radius:12px;padding:12px;margin-bottom:12px;}
     .cal-picker-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
     .cal-picker-title{color:#c084fc;font-size:13px;font-weight:800;}
@@ -37,30 +35,26 @@
     .cal-cell.empty{background:transparent;pointer-events:none;}
     .active-date-bar{background:#3b0764;border-radius:8px;padding:7px 12px;margin-bottom:12px;font-size:12px;color:#c084fc;font-weight:700;display:flex;justify-content:space-between;align-items:center;}
     .today-btn{background:none;border:1px solid #7c3aed;border-radius:6px;color:#a78bfa;font-size:11px;padding:3px 8px;cursor:pointer;}
-    /* Per-set log */
     .set-row{display:grid;grid-template-columns:28px 1fr 1fr 24px;gap:5px;align-items:center;margin-bottom:6px;}
     .set-label{font-size:11px;font-weight:800;color:#7c3aed;text-align:center;}
     .add-set-btn{background:#0a0010;border:1px dashed #7c3aed;border-radius:8px;color:#a78bfa;font-size:12px;font-weight:700;padding:7px;cursor:pointer;width:100%;margin-top:4px;}
     .remove-set-btn{background:none;border:none;color:#6b7280;cursor:pointer;font-size:15px;line-height:1;padding:0;}
     .remove-set-btn:hover{color:#ef4444;}
-    /* Collapsible history */
     .hist-day-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#2a0050;cursor:pointer;user-select:none;}
     .hist-day-header:active{opacity:0.8;}
     .hist-day-title{font-size:13px;font-weight:800;color:#c084fc;}
     .hist-day-toggle{font-size:11px;color:#a78bfa;font-weight:700;}
-    .hist-day-body{padding:10px 14px;display:none;}
-    .hist-day-body.open{display:block;}
+    .week-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;}
+    .week-btn{padding:8px 4px;border-radius:8px;border:1px solid #3b0764;cursor:pointer;font-size:11px;font-weight:700;text-align:center;transition:all 0.2s;}
   </style>
 </head>
 <body>
 <div id="root"></div>
 <script>
-var useState = React.useState;
-var useEffect = React.useEffect;
+var useState=React.useState,useEffect=React.useEffect;
 
 function todayStr(){var n=new Date(),y=n.getFullYear(),mo=n.getMonth()+1,d=n.getDate();return y+'-'+(mo<10?'0'+mo:mo)+'-'+(d<10?'0'+d:d);}
 function friendlyDate(iso){return new Date(iso+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
-
 function safeGet(k){try{return localStorage.getItem(k);}catch(e){try{return sessionStorage.getItem(k);}catch(e2){return null;}}}
 function safeSet(k,v){try{localStorage.setItem(k,v);}catch(e){try{sessionStorage.setItem(k,v);}catch(e2){}}}
 function safeRemove(k){try{localStorage.removeItem(k);}catch(e){try{sessionStorage.removeItem(k);}catch(e2){}}}
@@ -70,19 +64,185 @@ function safeKeys(prefix){
   catch(e){try{for(var i=0;i<sessionStorage.length;i++){var k=sessionStorage.key(i);if(k&&k.startsWith(prefix))keys.push(k);}}catch(e2){}}
   return keys;
 }
+function getPhaseLabel(w){return w<=4?'Foundation':w<=8?'Build':'Peak';}
+function getPhaseColor(w){return w<=4?'#7c3aed':w<=8?'#059669':'#db2777';}
 
-var EXERCISES = [
-  {name:"Dead Bug",area:"Transverse Abs — Waist Cinch",emoji:"🐛",sets:3,setsLabel:"3 sets × 10 each side",gym:"Lower back GLUED to floor the entire time. Activates the deepest ab layer that cinches your waist.",home:"Lower back GLUED to floor the entire time. Activates the deepest ab layer that cinches your waist.",equipment:"none",tip:"Exhale hard as you extend — that forced exhale contracts the transverse abdominis",howto:["Lie on back, arms straight up, knees bent 90° in air","Press lower back FIRMLY into floor — keep it there","Slowly lower opposite arm and leg toward floor","Lower back must not lift — ever","Return slowly, repeat other side","Slow and controlled — speed ruins this exercise"]},
-  {name:"Standing Side Crunch",area:"Obliques — Side Definition",emoji:"↔️",sets:3,setsLabel:"3 sets × 20 each side",gym:"Stand feet hip-width, hands behind head. Lift knee and crunch elbow toward it. Feel the side of your waist contract.",home:"Stand feet hip-width, hands behind head. Lift knee and crunch elbow toward it. Feel the side of your waist contract.",equipment:"none",tip:"Pause at the top of each crunch — that 1 second hold doubles the oblique activation",howto:["Stand feet hip-width, hands behind head","Lift RIGHT knee toward right elbow","Crunch side of torso — feel oblique squeeze","Pause 1 second at the top","Lower and repeat all reps","Switch sides — keep upper body upright throughout"]},
-  {name:"Hip Dip Plank",area:"Glute Medius — Hip Dip Filler",emoji:"🌀",sets:3,setsLabel:"3 sets × 15 each side",gym:"Side plank on elbow, dip hip to floor and drive back up. Targets glute medius which fills in hip dips.",home:"Side plank on elbow, dip hip to floor and drive back up. Targets glute medius which fills in hip dips.",equipment:"none",tip:"Drive the hip UP as high as possible — the top position is where hip dip filling happens",howto:["Get into side plank — elbow under shoulder","Body in a straight line, hips stacked","Lower hip toward floor slowly","Drive hip UP as high as possible — squeeze","Hold at the top 1 second","15 dips then flip to other side"]},
-  {name:"Hollow Body Hold",area:"Transverse Abs — Deep Cinch",emoji:"🌙",sets:3,setsLabel:"3 sets × 30 sec hold",gym:"Arms overhead, legs extended, lower back flat. Compresses the entire waist from the inside out.",home:"Arms overhead, legs extended, lower back flat. Compresses the entire waist from the inside out.",equipment:"none",tip:"Pull your belly button through the floor — that internal cue is what makes this a waist exercise not just a core exercise",howto:["Lie on back, press lower back into floor","Extend arms overhead, legs out straight","Lift arms, head, shoulders and legs slightly","Lower back stays GLUED to floor","Hold and breathe — do not quit early","Bend knees to modify if lower back lifts"]},
-  {name:"Woodchop — High to Low",area:"Obliques — Rotational Power",emoji:"🪓",sets:3,setsLabel:"3 sets × 12 each side",gym:"Use the cable machine set high. Pull the handle diagonally down across your body. The cable gives constant tension the whole way through.",home:"Anchor a resistance band high on a door frame. Same diagonal chopping motion — band gives you the resistance the cable would.",equipment:"gym:cable | home:band",tip:"The rotation comes from your WAIST not your arms — arms just hold the weight",howto:["Stand feet shoulder-width, hold cable or band handle at high diagonal","Rotate torso and pull down across body to opposite hip","Movement is diagonal — high to low","Keep arms mostly straight — rotation is from the waist","Control the return — do not let it snap back","All reps one side then switch"]},
-  {name:"Side Lying Hip Raise",area:"Glute Medius — Hip Dip Filler",emoji:"🦵",sets:3,setsLabel:"3 sets × 15 each side",gym:"Lie on your side on a mat, lift hips off the floor. Direct activation of glute medius — the muscle that fills hip dips.",home:"Add a resistance band above your knees for extra burn. Otherwise pure bodyweight.",equipment:"none",tip:"The higher you can lift your hips, the more glute medius fires — push for height",howto:["Lie on your side, legs stacked, elbow under shoulder","Keep body in a straight line","Lift hips off the floor — squeeze outer glute","Hold at the top 1-2 seconds","Lower slowly — do not let hips touch floor between reps","Complete all reps then switch sides"]},
-  {name:"Bicycle Crunch",area:"Obliques — Upper & Lower",emoji:"🚲",sets:3,setsLabel:"3 sets × 20 each side",gym:"Slow controlled bicycles on a mat. Each rep should take 3 seconds. Speed kills the oblique activation.",home:"Slow controlled bicycles on the floor. Each rep should take 3 seconds. Speed kills the oblique activation.",equipment:"none",tip:"Twist from your WAIST not your neck — elbow drives toward knee, not the other way around",howto:["Lie on back, hands lightly behind head","Lift both knees to tabletop position","Extend one leg out, rotate opposite elbow toward bent knee","Twist comes from the waist — not the neck","3 seconds per rep — slow is the point","Alternate sides continuously"]},
-  {name:"Seated Russian Twist",area:"Obliques — Rotational Definition",emoji:"🌀",sets:3,setsLabel:"3 sets × 20 each side",gym:"Use a weight plate or medicine ball for resistance. Lean back slightly, rotate fully side to side.",home:"Hold a water bottle or household object for light resistance. Bodyweight works too — just lean back far enough to feel it.",equipment:"gym:weight plate | home:optional",tip:"Touch the floor on each side — full range of motion builds the most definition",howto:["Sit on floor, knees bent, feet flat or lifted","Lean back slightly — feel abs engage immediately","Clasp hands or hold weight at chest","Rotate torso fully to the RIGHT — touch floor","Rotate fully to the LEFT — touch floor","That is 1 rep — stay leaned back throughout"]},
-  {name:"Cable Oblique Crunch",area:"Obliques — Weighted Definition",emoji:"💪",sets:3,setsLabel:"3 sets × 15 each side",gym:"Cable machine set above head height. Stand side-on and crunch the side of your waist pulling the cable down toward your hip.",home:"Anchor a resistance band to the top of a door frame. Same movement — crunch the side of your waist pulling the band down toward your hip.",equipment:"gym:cable | home:band",tip:"Keep the movement small and isolated — this is a CRUNCH not a full side bend",howto:["Anchor cable or band at head height or above","Stand side-on, hold handle with one hand","Crunch side of waist — pull down toward hip","Keep elbow close to body","Squeeze oblique hard at the bottom","Release slowly back up — resist on the way up"]},
-  {name:"Plank Hip Tap",area:"Transverse Abs & Obliques",emoji:"⬇️",sets:3,setsLabel:"3 sets × 20 each side",gym:"Full plank on the floor, rotate hips to tap alternately side to side. Works deep cinching muscles and obliques together.",home:"Full plank on the floor, rotate hips to tap alternately side to side. Works deep cinching muscles and obliques together.",equipment:"none",tip:"Keep hips as LOW as possible — the smaller the rotation, the harder the transverse abs work",howto:["Start in full plank — hands under shoulders","Keep core tight and hips low","Rotate hips to tap RIGHT hip toward floor","Return to center","Rotate hips to tap LEFT hip toward floor","Keep movement controlled — do not let hips rise"]}
+// ─── FULL EXERCISE LIBRARY (20 exercises) ────────────────────────────────────
+var LIB = {
+  deadBug:{name:"Dead Bug",area:"Transverse Abs — Waist Cinch",emoji:"🐛",
+    sets:3,setsLabel:"3 × 10 each side",equipment:"none",
+    gym:"Lower back GLUED to floor the entire time. The deepest ab layer that cinches your waist.",
+    home:"Same at home. Lower back glued to floor — no exceptions.",
+    tip:"Exhale hard as you extend — that forced exhale contracts the transverse abdominis.",
+    howto:["Lie on back, arms straight up, knees bent 90° in air","Press lower back FIRMLY into floor","Slowly lower opposite arm and leg toward floor","Lower back must not lift — ever","Return slowly, repeat other side","Slow and controlled — speed ruins this"]},
+
+  sideCrunch:{name:"Standing Side Crunch",area:"Obliques — Side Definition",emoji:"↔️",
+    sets:3,setsLabel:"3 × 20 each side",equipment:"none",
+    gym:"Stand feet hip-width, hands behind head. Lift knee and crunch elbow toward it.",
+    home:"Same at home — no equipment needed.",
+    tip:"Pause 1 second at the top — that hold doubles the oblique activation.",
+    howto:["Stand feet hip-width, hands behind head","Lift RIGHT knee toward right elbow","Crunch side of torso — feel oblique squeeze","Pause 1 second at the top","Switch sides — keep upper body upright"]},
+
+  hipDipPlank:{name:"Hip Dip Plank",area:"Glute Medius & Obliques",emoji:"🌀",
+    sets:3,setsLabel:"3 × 15 each side",equipment:"none",
+    gym:"Side plank on elbow, dip hip to floor and drive back up.",
+    home:"Same at home on a mat.",
+    tip:"Drive the hip UP as high as possible — the top is where hip dip filling happens.",
+    howto:["Side plank — elbow under shoulder, body in straight line","Lower hip toward floor slowly","Drive hip UP as high as possible — squeeze","Hold at top 1 second","15 dips then flip to other side"]},
+
+  hollowBody:{name:"Hollow Body Hold",area:"Transverse Abs — Deep Cinch",emoji:"🌙",
+    sets:3,setsLabel:"3 × 30 sec hold",equipment:"none",
+    gym:"Arms overhead, legs extended, lower back flat. Compresses the entire waist.",
+    home:"Same at home on mat.",
+    tip:"Pull belly button through the floor — that internal cue makes this a waist exercise.",
+    howto:["Lie on back, press lower back into floor","Extend arms overhead, legs out straight","Lift arms, head, shoulders and legs slightly","Lower back stays GLUED to floor","Hold and breathe — bend knees to modify"]},
+
+  woodchop:{name:"Woodchop — High to Low",area:"Obliques — Rotational Power",emoji:"🪓",
+    sets:3,setsLabel:"3 × 12 each side",equipment:"gym:cable | home:band",
+    gym:"Cable set high. Pull handle diagonally down across your body — constant tension all the way.",
+    home:"Anchor band high on door frame. Same diagonal chopping motion.",
+    tip:"The rotation comes from your WAIST not your arms — arms just hold the weight.",
+    howto:["Stand feet shoulder-width, hold cable/band handle at high diagonal","Rotate torso and pull down across body to opposite hip","Keep arms mostly straight — rotation from the waist","Control the return — do not let it snap back","All reps one side then switch"]},
+
+  sideLyingRaise:{name:"Side Lying Hip Raise",area:"Glute Medius — Hip Dip Filler",emoji:"🦵",
+    sets:3,setsLabel:"3 × 15 each side",equipment:"none",
+    gym:"Lie on side on mat, lift hips off floor. Direct glute medius activation.",
+    home:"Add band above knees for extra burn.",
+    tip:"Push for height at the top — higher lift = more glute medius.",
+    howto:["Lie on side, legs stacked, elbow under shoulder","Lift hips off floor — squeeze outer glute","Hold at top 1–2 seconds","Lower slowly — hips don't touch floor between reps","Switch sides"]},
+
+  bicycleCrunch:{name:"Bicycle Crunch",area:"Obliques — Upper & Lower",emoji:"🚲",
+    sets:3,setsLabel:"3 × 20 each side",equipment:"none",
+    gym:"Slow controlled bicycles. 3 seconds per rep — speed kills the oblique activation.",
+    home:"Same on floor. 3 seconds per rep.",
+    tip:"Twist from your WAIST not your neck — elbow drives toward knee.",
+    howto:["Lie on back, hands lightly behind head","Lift both knees to tabletop","Extend one leg, rotate opposite elbow toward bent knee","Twist from the waist — not the neck","3 seconds per rep — slow is the point"]},
+
+  russianTwist:{name:"Seated Russian Twist",area:"Obliques — Rotational Definition",emoji:"🌀",
+    sets:3,setsLabel:"3 × 20 each side",equipment:"gym:weight plate | home:optional",
+    gym:"Hold weight plate or medicine ball. Lean back slightly, rotate fully side to side.",
+    home:"Hold a water bottle or go bodyweight — lean back far enough to feel the abs.",
+    tip:"Touch the floor on each side — full range of motion builds the most definition.",
+    howto:["Sit on floor, knees bent, feet flat or lifted","Lean back slightly — abs engage immediately","Rotate torso fully RIGHT — touch floor","Rotate fully LEFT — touch floor","Stay leaned back throughout"]},
+
+  cableObliqueCrunch:{name:"Oblique Band Crunch",area:"Obliques — Weighted Definition",emoji:"💪",
+    sets:3,setsLabel:"3 × 15 each side",equipment:"gym:cable | home:band",
+    gym:"Cable set above head height. Stand side-on and crunch the side of your waist down toward your hip.",
+    home:"Band anchored at top of door frame. Same crunch movement.",
+    tip:"Keep the movement small and isolated — this is a CRUNCH not a full side bend.",
+    howto:["Anchor cable/band at head height or above","Stand side-on, hold handle with one hand","Crunch side of waist — pull down toward hip","Keep elbow close to body","Squeeze oblique hard at bottom","Release slowly — resist on the way up"]},
+
+  plankHipTap:{name:"Plank Hip Tap",area:"Transverse Abs & Obliques",emoji:"⬇️",
+    sets:3,setsLabel:"3 × 20 each side",equipment:"none",
+    gym:"Full plank, rotate hips to tap side to side. Deep cinching muscles and obliques together.",
+    home:"Same on floor.",
+    tip:"Keep hips LOW — smaller rotation = harder transverse abs work.",
+    howto:["Start in full plank — hands under shoulders","Keep core tight and hips low","Rotate hips to tap RIGHT hip toward floor","Return to center","Rotate hips to tap LEFT hip toward floor","Keep movement controlled — hips stay low"]},
+
+  standingObliqueDumbbell:{name:"Dumbbell Side Bend",area:"Obliques — Lateral Definition",emoji:"🏋️",
+    sets:3,setsLabel:"3 × 15 each side",equipment:"gym:dumbbell | home:dumbbell",
+    gym:"Hold one dumbbell at side. Slowly bend toward it then use your oblique to pull back up.",
+    home:"Same with a dumbbell or household weight.",
+    tip:"The return is the work — pull back up with your oblique, not momentum.",
+    howto:["Stand feet hip-width, one dumbbell in right hand","Let it pull you slowly to the right — side bend","Feel the LEFT oblique stretch","Contract left oblique to pull you back up straight","15 reps then switch hands"]},
+
+  reverseCrunch:{name:"Reverse Crunch",area:"Lower Abs — Waist Base",emoji:"🔄",
+    sets:3,setsLabel:"3 × 15 reps",equipment:"none",
+    gym:"Lie on back, legs raised. Use lower abs to curl hips off floor. Slow and intentional.",
+    home:"Same on mat.",
+    tip:"If you feel it in hip flexors more than abs, slow down even more.",
+    howto:["Lie on back, legs raised, knees slightly bent","Press lower back into floor","Using LOWER ABS, curl hips up off floor","Hold at top 1 second","Lower slowly — do not drop","Never use momentum"]},
+
+  mountainClimber:{name:"Mountain Climber — Slow",area:"Transverse Abs & Obliques",emoji:"🏔️",
+    sets:3,setsLabel:"3 × 20 each leg",equipment:"none",
+    gym:"Full plank. Drive knees toward chest slowly — 3 seconds per rep. This is NOT a cardio drill.",
+    home:"Same on mat.",
+    tip:"The slower you go, the more the deep abs work. Fast mountain climbers are cardio. Slow ones build the waist.",
+    howto:["Full plank — hands under shoulders, body straight","Drive RIGHT knee slowly toward chest","Hold 1 second at the top","Return slowly to plank","Drive LEFT knee — 3 seconds per rep","Keep hips level throughout"]},
+
+  spiderPlank:{name:"Spider Plank",area:"Obliques & Hip Flexors",emoji:"🕷️",
+    sets:3,setsLabel:"3 × 12 each side",equipment:"none",
+    gym:"Full plank — bring one knee out to the side toward your elbow. Works obliques and hip flexors simultaneously.",
+    home:"Same on mat.",
+    tip:"Bring knee to elbow — the more your knee meets your elbow, the more oblique you feel.",
+    howto:["Full plank — hands under shoulders","Drive RIGHT knee out to the side toward RIGHT elbow","Keep hips level — do not rotate or lift","Hold 1 second when knee meets elbow","Return to plank, switch sides","12 each side per set"]},
+
+  vSitHold:{name:"V-Sit Hold",area:"Core Stamina — All Abs",emoji:"✌️",
+    sets:3,setsLabel:"3 × 20–30 sec hold",equipment:"none",
+    gym:"Sit on mat, lean back, raise legs to 45°, arms extended forward. Hold.",
+    home:"Same on mat.",
+    tip:"The further you lean back, the harder the abs work — find your edge and hold it.",
+    howto:["Sit on mat, knees bent","Lean torso back to 45° — abs engage immediately","Lift feet off floor, legs extended or bent","Arms reach forward parallel to floor","Hold and breathe — do not round your spine"]},
+
+  crossBodyMountain:{name:"Cross Body Mountain Climber",area:"Obliques — Rotational",emoji:"❌",
+    sets:3,setsLabel:"3 × 16 each side",equipment:"none",
+    gym:"Full plank. Drive knee across body toward opposite elbow — twisting oblique hit.",
+    home:"Same on mat.",
+    tip:"Twist your hip to really bring the knee across — that twist is the whole exercise.",
+    howto:["Full plank — hands under shoulders","Drive RIGHT knee diagonally toward LEFT elbow","Twist hip to bring it across","Hold 1 second at the top","Return to plank, switch sides","Slow and deliberate — not a speed drill"]},
+
+  standingTwistBand:{name:"Standing Twist with Band",area:"Obliques — Anti-Rotation",emoji:"🔁",
+    sets:3,setsLabel:"3 × 15 each side",equipment:"gym:cable | home:band",
+    gym:"Cable at chest height, stand sideways. Pull and rotate torso across your body. Constant tension.",
+    home:"Band anchored in doorframe at chest height. Same rotation.",
+    tip:"Plant your feet — all the rotation comes from the waist up. Feet stay still.",
+    howto:["Anchor cable/band at chest height","Stand sideways, arms extended holding handle","Rotate torso away from anchor — waist drives the movement","Control the return — resist the pull back","15 reps then turn and switch sides"]},
+
+  legRaisesLying:{name:"Lying Leg Raises",area:"Lower Abs — Waist Base",emoji:"⬆️",
+    sets:3,setsLabel:"3 × 15 reps",equipment:"none",
+    gym:"Lie flat, legs straight, press lower back into floor. Raise legs to 90° then lower slowly.",
+    home:"Same on mat.",
+    tip:"Lower back lifting = lower abs have given out. Reduce range before that happens.",
+    howto:["Lie flat on back, legs straight, arms at sides","Press lower back firmly into floor","Raise both legs straight up to 90°","Slowly lower — stop before lower back lifts","Raise again without letting feet touch floor","15 reps per set"]},
+
+  sitUpTwist:{name:"Sit Up with Twist",area:"Full Abs — Definition",emoji:"💫",
+    sets:3,setsLabel:"3 × 15 each side",equipment:"gym:weight plate | home:optional",
+    gym:"Full sit up, add a twist at the top. Hold a weight plate at chest for more resistance.",
+    home:"Bodyweight or hold a heavy book. Same full sit up with twist.",
+    tip:"The twist at the top is the oblique hit — do not rush through it.",
+    howto:["Lie on back, knees bent, hands at chest or holding weight","Perform a full sit up — chest toward knees","At the top, rotate torso to the RIGHT","Return to center, lower back down","Alternate twist direction each rep"]},
+
+  plankReachThrough:{name:"Plank Reach Through",area:"Obliques & Core Stability",emoji:"🤚",
+    sets:3,setsLabel:"3 × 12 each side",equipment:"none",
+    gym:"Side plank — reach under your body with your top arm then open back up wide.",
+    home:"Same on mat.",
+    tip:"The wider you open at the top, the more the oblique and shoulder work together.",
+    howto:["Get into side plank — elbow under shoulder","Raise top arm straight up toward ceiling","Rotate: reach top arm under your body toward the floor","Return to open position — arm back up","12 reps then flip to other side","Keep hips up throughout — do not sag"]}
+};
+
+// ─── 12-WEEK ROTATION — each week gets a unique set of 6 exercises ───────────
+// All 10 original exercises used, plus 10 new ones = 20 total in library
+// Each week: 6 exercises selected for variety. No week is the same.
+var WEEKLY = [
+  // W1 — Foundation intro
+  ['deadBug','sideCrunch','hipDipPlank','hollowBody','bicycleCrunch','reverseCrunch'],
+  // W2
+  ['deadBug','russianTwist','sideLyingRaise','woodchop','plankHipTap','sitUpTwist'],
+  // W3
+  ['hollowBody','mountainClimber','sideCrunch','cableObliqueCrunch','hipDipPlank','legRaisesLying'],
+  // W4
+  ['deadBug','bicycleCrunch','standingObliqueDumbbell','plankHipTap','reverseCrunch','russianTwist'],
+  // W5 — Build phase
+  ['woodchop','spiderPlank','vSitHold','sideLyingRaise','crossBodyMountain','hollowBody'],
+  // W6
+  ['mountainClimber','cableObliqueCrunch','standingTwistBand','deadBug','hipDipPlank','sitUpTwist'],
+  // W7
+  ['vSitHold','bicycleCrunch','plankReachThrough','woodchop','reverseCrunch','standingObliqueDumbbell'],
+  // W8
+  ['crossBodyMountain','sideCrunch','legRaisesLying','spiderPlank','russianTwist','hollowBody'],
+  // W9 — Peak phase
+  ['spiderPlank','woodchop','vSitHold','crossBodyMountain','standingTwistBand','plankReachThrough'],
+  // W10
+  ['mountainClimber','sitUpTwist','cableObliqueCrunch','deadBug','hipDipPlank','vSitHold'],
+  // W11
+  ['plankReachThrough','standingObliqueDumbbell','crossBodyMountain','bicycleCrunch','woodchop','legRaisesLying'],
+  // W12
+  ['spiderPlank','russianTwist','standingTwistBand','hollowBody','sitUpTwist','reverseCrunch']
 ];
+
+function getWeekExercises(w){
+  return WEEKLY[w-1].map(function(k){return LIB[k];});
+}
 
 function equipmentBadge(eq,isHome){
   if(eq==="none") return React.createElement("span",{style:{fontSize:10,color:"#6b7280",fontWeight:600}},"🟢 No equipment");
@@ -94,7 +254,7 @@ function equipmentBadge(eq,isHome){
   return React.createElement("span",{style:{fontSize:10,color:"#f9a8d4",fontWeight:600}},"🔧 Needs: "+label);
 }
 
-// ── CALENDAR PICKER ───────────────────────────────────────────
+// ─── CALENDAR PICKER ─────────────────────────────────────────────────────────
 function CalendarPicker(props){
   var activeDate=props.activeDate,onSelect=props.onSelect;
   var todayISO=todayStr();
@@ -105,20 +265,20 @@ function CalendarPicker(props){
   function nextMonth(){var nm=calMonth+1,ny=calYear;if(nm>11){nm=0;ny++;}var fp=ny+'-'+String(nm+1).padStart(2,'0')+'-01';if(fp>todayISO)return;setCalMonth(nm);setCalYear(ny);}
   var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var firstDay=new Date(calYear,calMonth,1).getDay();
-  var daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  var dim=new Date(calYear,calMonth+1,0).getDate();
   var cells=[];
-  for(var i=0;i<firstDay;i++) cells.push(null);
-  for(var d=1;d<=daysInMonth;d++) cells.push(d);
+  for(var i=0;i<firstDay;i++)cells.push(null);
+  for(var d=1;d<=dim;d++)cells.push(d);
   return React.createElement('div',{className:'cal-picker'},
     React.createElement('div',{className:'cal-picker-header'},
       React.createElement('button',{className:'cal-nav',onClick:prevMonth},'◀'),
       React.createElement('span',{className:'cal-picker-title'},months[calMonth]+' '+calYear),
       React.createElement('button',{className:'cal-nav',onClick:nextMonth},'▶')
     ),
-    React.createElement('div',{className:'cal-dow'},['Su','Mo','Tu','We','Th','Fr','Sa'].map(function(dow){return React.createElement('span',{key:dow},dow);})),
+    React.createElement('div',{className:'cal-dow'},['Su','Mo','Tu','We','Th','Fr','Sa'].map(function(d){return React.createElement('span',{key:d},d);})),
     React.createElement('div',{className:'cal-grid'},
       cells.map(function(d,i){
-        if(!d) return React.createElement('div',{key:'e'+i,className:'cal-cell empty'});
+        if(!d)return React.createElement('div',{key:'e'+i,className:'cal-cell empty'});
         var iso=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
         var isFuture=iso>todayISO,isToday=iso===todayISO,isSel=iso===activeDate;
         var cls='cal-cell'+(isToday?' today':'')+(isSel?' selected':'')+(isFuture?' future':'');
@@ -128,33 +288,29 @@ function CalendarPicker(props){
   );
 }
 
-// ── PER-SET LOG FORM ──────────────────────────────────────────
+// ─── LOG FORM ────────────────────────────────────────────────────────────────
 function LogForm(props){
   var numSets=props.sets||3;
-  function makeRow(){return{reps:'',weight:'',note:''};}
-  var initRows=[];
-  for(var i=0;i<numSets;i++) initRows.push(makeRow());
+  function makeRow(){return{reps:'',weight:''};}
+  var initRows=[];for(var i=0;i<numSets;i++)initRows.push(makeRow());
   var rw=useState(initRows),rows=rw[0],setRows=rw[1];
   var sv=useState(false),saving=sv[0],setSaving=sv[1];
-
-  function updateRow(idx,field,val){setRows(function(prev){var next=prev.map(function(r){return Object.assign({},r);});next[idx][field]=val;return next;});}
-  function addRow(){setRows(function(prev){return prev.concat(makeRow());});}
-  function removeRow(idx){setRows(function(prev){if(prev.length<=1)return prev;return prev.filter(function(_,i){return i!==idx;});});}
-
+  function updateRow(idx,f,v){setRows(function(p){var n=p.map(function(r){return Object.assign({},r);});n[idx][f]=v;return n;});}
+  function addRow(){setRows(function(p){return p.concat(makeRow());});}
+  function removeRow(idx){setRows(function(p){if(p.length<=1)return p;return p.filter(function(_,i){return i!==idx;});});}
   function submit(){
-    var filled=rows.filter(function(r){return r.reps||r.weight||r.note;});
-    if(!filled.length) return;
+    var filled=rows.filter(function(r){return r.reps||r.weight;});
+    if(!filled.length)return;
     setSaving(true);
     var logDate=props.logDate||todayStr();
     var key='wst_'+logDate+'_'+props.exName.replace(/\s+/g,'-');
     var existing=JSON.parse(safeGet(key)||'[]');
-    var timestamp=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    filled.forEach(function(r,i){existing.push({set:i+1,reps:r.reps,weight:r.weight,note:r.note,time:timestamp});});
+    var ts=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    filled.forEach(function(r,i){existing.push({set:i+1,reps:r.reps,weight:r.weight,time:ts});});
     safeSet(key,JSON.stringify(existing));
     var reset=[];for(var i=0;i<numSets;i++)reset.push(makeRow());
     setRows(reset);setSaving(false);props.onSaved();
   }
-
   return React.createElement('div',{style:{background:'#0a0010',border:'1px solid #3b0764',borderRadius:10,padding:12,marginTop:8}},
     React.createElement('div',{style:{fontSize:11,color:'#c084fc',fontWeight:700,marginBottom:10}},'📝 Log This Exercise'),
     React.createElement('div',{style:{display:'grid',gridTemplateColumns:'28px 1fr 1fr 24px',gap:5,marginBottom:4}},
@@ -177,12 +333,11 @@ function LogForm(props){
   );
 }
 
-// ── HISTORY VIEW ─────────────────────────────────────────────
+// ─── HISTORY VIEW ─────────────────────────────────────────────────────────────
 function HistoryView(){
   var d=useState(null),setData=d[1];d=d[0];
   var rf=useState(0),setRf=rf[1];rf=rf[0];
   var op=useState({}),openDates=op[0],setOpenDates=op[1];
-
   useEffect(function(){
     var keys=safeKeys('wst_');
     var byDate={};
@@ -195,68 +350,41 @@ function HistoryView(){
     });
     setData(byDate);
   },[rf]);
-
-  function toggleDate(date){
-    setOpenDates(function(prev){var n=Object.assign({},prev);n[date]=!prev[date];return n;});
-  }
-
+  function toggleDate(date){setOpenDates(function(p){var n=Object.assign({},p);n[date]=!p[date];return n;});}
   function delEntry(key,idx){
     var entries=JSON.parse(safeGet(key)||'[]');
     entries.splice(idx,1);
-    if(entries.length){safeSet(key,JSON.stringify(entries));}else{safeRemove(key);}
+    if(entries.length)safeSet(key,JSON.stringify(entries));else safeRemove(key);
     setRf(function(x){return x+1;});
   }
-
-  if(!d) return React.createElement('div',{style:{textAlign:'center',color:'#9ca3af',fontSize:13,padding:'20px 0'}},'Loading...');
-  if(!Object.keys(d).length) return React.createElement('div',{style:{textAlign:'center',color:'#6b7280',fontSize:13,padding:'30px 0'}},'No logs yet. Tap 📝 Log on any exercise to start tracking!');
-
+  if(!d)return React.createElement('div',{style:{textAlign:'center',color:'#9ca3af',fontSize:13,padding:'20px 0'}},'Loading...');
+  if(!Object.keys(d).length)return React.createElement('div',{style:{textAlign:'center',color:'#6b7280',fontSize:13,padding:'30px 0'}},'No logs yet. Tap 📝 Log on any exercise to start tracking!');
   var dates=Object.keys(d).sort(function(a,b){return b.localeCompare(a);});
   return React.createElement('div',null,
     dates.map(function(date){
-      var exs=d[date];
-      var friendly=friendlyDate(date);
-      var isOpen=!!openDates[date];
-      // count total sets across all exercises for this day
-      var totalSets=Object.values(exs).reduce(function(sum,entries){return sum+entries.length;},0);
+      var exs=d[date];var isOpen=!!openDates[date];
+      var totalSets=Object.values(exs).reduce(function(sum,e){return sum+e.length;},0);
       return React.createElement('div',{key:date,style:{background:'#1a0030',border:'1px solid #3b0764',borderRadius:12,marginBottom:10,overflow:'hidden'}},
-        // Collapsed header — always visible
-        React.createElement('div',{
-          className:'hist-day-header',
-          onClick:function(){toggleDate(date);}
-        },
+        React.createElement('div',{className:'hist-day-header',onClick:function(){toggleDate(date);}},
           React.createElement('div',null,
-            React.createElement('div',{className:'hist-day-title'},'📅 '+friendly),
-            React.createElement('div',{style:{fontSize:10,color:'#6b7280',marginTop:2}},Object.keys(exs).length+' exercise'+(Object.keys(exs).length!==1?'s':'')+' · '+totalSets+' set'+(totalSets!==1?'s':''))
+            React.createElement('div',{className:'hist-day-title'},'📅 '+friendlyDate(date)),
+            React.createElement('div',{style:{fontSize:10,color:'#6b7280',marginTop:2}},Object.keys(exs).length+' exercises · '+totalSets+' sets')
           ),
           React.createElement('div',{className:'hist-day-toggle'},isOpen?'▲ Hide':'▼ Show')
         ),
-        // Expandable body
         isOpen&&React.createElement('div',{style:{padding:'10px 14px'}},
           Object.keys(exs).map(function(ex){
-            var entries=exs[ex];
-            var logKey='wst_'+date+'_'+ex.replace(/\s+/g,'-');
+            var entries=exs[ex];var logKey='wst_'+date+'_'+ex.replace(/\s+/g,'-');
             return React.createElement('div',{key:ex,className:'hist-block'},
               React.createElement('div',{className:'hist-date'},ex),
               entries.map(function(entry,idx){
                 var ci=idx,ck=logKey;
-                if(entry.set){
-                  var detail='';
-                  if(entry.reps) detail+=entry.reps+' reps';
-                  if(entry.weight) detail+=(detail?' @ ':'')+entry.weight;
-                  return React.createElement('div',{key:idx,className:'hist-row'},
-                    React.createElement('span',{style:{color:'#a78bfa',fontWeight:700,marginRight:6}},'Set '+entry.set),
-                    React.createElement('span',null,detail),
-                    React.createElement('span',{style:{display:'flex',alignItems:'center',gap:6}},
-                      entry.note?React.createElement('span',{style:{color:'#9ca3af',fontStyle:'italic'}},entry.note):null,
-                      React.createElement('span',{style:{color:'#6b7280'}},entry.time||''),
-                      React.createElement('button',{className:'del',onClick:function(){delEntry(ck,ci);}},'×')
-                    )
-                  );
-                }
+                var label=entry.set?'Set '+entry.set:'';
+                var detail=(entry.reps?entry.reps+' reps':'')+(entry.weight?' @ '+entry.weight:'');
                 return React.createElement('div',{key:idx,className:'hist-row'},
-                  React.createElement('span',null,(entry.sets?entry.sets+' sets':''),(entry.reps?' × '+entry.reps+' reps':''),(entry.weight?' @ '+entry.weight:'')),
+                  React.createElement('span',{style:{color:'#a78bfa',fontWeight:700,marginRight:6}},label),
+                  React.createElement('span',null,detail),
                   React.createElement('span',{style:{display:'flex',alignItems:'center',gap:6}},
-                    entry.note?React.createElement('span',{style:{color:'#9ca3af',fontStyle:'italic'}},entry.note):null,
                     React.createElement('span',{style:{color:'#6b7280'}},entry.time||''),
                     React.createElement('button',{className:'del',onClick:function(){delEntry(ck,ci);}},'×')
                   )
@@ -270,7 +398,7 @@ function HistoryView(){
   );
 }
 
-// ── CARD ─────────────────────────────────────────────────────
+// ─── CARD ─────────────────────────────────────────────────────────────────────
 function Card(props){
   var ex=props.ex,isDone=props.isDone,isOpen=props.isOpen,isHome=props.isHome,showLog=props.showLog;
   return React.createElement("div",{style:{background:isDone?"#0f1f0f":"#1a0030",border:"2px solid "+(isDone?"#166534":"#3b0764"),borderRadius:12,padding:"14px 16px",marginBottom:12}},
@@ -279,7 +407,7 @@ function Card(props){
         React.createElement("span",{style:{fontSize:20}},ex.emoji),
         React.createElement("div",null,
           React.createElement("div",{style:{fontWeight:700,fontSize:14,color:isDone?"#4ade80":"white"}},(isDone?"✅ ":"")+ex.name),
-          React.createElement("div",{style:{fontSize:11,color:isHome?"#4ade80":"#7c3aed",fontWeight:600,marginTop:2}},ex.area)
+          React.createElement("div",{style:{fontSize:11,color:isHome?"#4ade80":"#f9a8d4",fontWeight:600,marginTop:2}},ex.area)
         )
       ),
       React.createElement("div",{style:{fontSize:11,color:"#a78bfa",textAlign:"right",fontWeight:700}},ex.setsLabel)
@@ -291,14 +419,14 @@ function Card(props){
       React.createElement("button",{onClick:props.onExpand,style:{flex:1,background:isOpen?"#3b0764":"#0a0010",border:"1px solid #3b0764",borderRadius:8,padding:"6px 14px",fontSize:12,color:"#a78bfa",fontWeight:700,cursor:"pointer"}},isOpen?"▲ Hide How To":"▼ How To"),
       React.createElement("button",{onClick:props.onToggleLog,style:{flex:1,background:showLog?"#7c3aed":"#0a0010",border:"1px solid #7c3aed",borderRadius:8,padding:"6px 14px",fontSize:12,color:showLog?"white":"#c084fc",fontWeight:700,cursor:"pointer"}},showLog?"▲ Hide Log":"📝 Log")
     ),
-    isOpen&&React.createElement("div",{style:{marginTop:0,background:"#0a0010",borderRadius:8,padding:"12px 14px",marginBottom:8}},
+    isOpen&&React.createElement("div",{style:{background:"#0a0010",borderRadius:8,padding:"12px 14px",marginBottom:8}},
       ex.howto.map(function(step,s){return React.createElement("div",{key:s,style:{display:"flex",gap:10,marginBottom:8}},React.createElement("span",{style:{color:"#7c3aed",fontWeight:800,fontSize:13,minWidth:20}},(s+1)+"."),React.createElement("span",{style:{color:"#e2e8f0",fontSize:12,lineHeight:1.5}},step));})
     ),
     showLog&&React.createElement(LogForm,{exName:ex.name,logDate:props.logDate,sets:ex.sets,onSaved:props.onLogSaved})
   );
 }
 
-// ── APP ──────────────────────────────────────────────────────
+// ─── APP ─────────────────────────────────────────────────────────────────────
 function App(){
   var m=useState("gym"),mode=m[0],setMode=m[1];
   var c=useState({}),checked=c[0],setChecked=c[1];
@@ -309,38 +437,60 @@ function App(){
   var ld=useState(todayStr()),logDate=ld[0],setLogDate=ld[1];
   var sc=useState(false),showCal=sc[0],setShowCal=sc[1];
 
+  var savedWeek=parseInt(safeGet('wst_week')||'1')||1;
+  var sw=useState(savedWeek),week=sw[0],setWeekRaw=sw[1];
+  function setWeek(w){setWeekRaw(w);safeSet('wst_week',String(w));setChecked({});}
+
+  var phaseColor=getPhaseColor(week);
+  var phaseLabel=getPhaseLabel(week);
   var isHome=mode==="home";
   var isLog=mainTab==='log';
-  var done=EXERCISES.filter(function(_,i){return!!checked[mode+"-"+i];}).length;
-  var pct=(done/EXERCISES.length)*100;
+  var exercises=getWeekExercises(week);
+  var done=exercises.filter(function(_,i){return!!checked[mode+"-"+week+"-"+i];}).length;
+  var pct=(done/exercises.length)*100;
   var isToday=logDate===todayStr();
-
-  function ck(key){setChecked(function(prev){var n=Object.assign({},prev);n[key]=!prev[key];return n;});}
-  function ek(key){setExpanded(function(prev){var n=Object.assign({},prev);n[key]=!prev[key];return n;});}
-  function lk(key){setLogOpen(function(prev){var n=Object.assign({},prev);n[key]=!prev[key];return n;});}
-
   var headerBg=isHome?"linear-gradient(135deg,#064e3b,#059669)":"linear-gradient(135deg,#7c1a4a,#db2777)";
+
+  function ck(key){setChecked(function(p){var n=Object.assign({},p);n[key]=!p[key];return n;});}
+  function ek(key){setExpanded(function(p){var n=Object.assign({},p);n[key]=!p[key];return n;});}
+  function lk(key){setLogOpen(function(p){var n=Object.assign({},p);n[key]=!p[key];return n;});}
 
   return React.createElement("div",{style:{fontFamily:"system-ui,sans-serif",maxWidth:460,margin:"0 auto",padding:16,backgroundColor:"#0a0010",minHeight:"100vh"}},
 
-    // Back button
     React.createElement("a",{href:"https://fletch1980.github.io/Complete_goddess/",className:"back-btn"},"👑 Home"),
 
     React.createElement("div",{style:{background:headerBg,borderRadius:14,padding:"18px 20px",color:"white",marginBottom:16}},
       React.createElement("div",{style:{fontSize:22,fontWeight:800}},"⏳ Waist Circuit"),
       React.createElement("div",{style:{fontSize:13,opacity:0.9,marginTop:2}},isHome?"🏠 At Home · Bands & Bodyweight":"🏋️ Gym · Cables, Plates & Bodyweight"),
-      React.createElement("div",{style:{fontSize:12,opacity:0.8,marginTop:4}},"10 exercises · 3 sets each · Rest 45 sec between exercises"),
+      React.createElement("div",{style:{fontSize:12,opacity:0.8,marginTop:4}},"6 exercises · 3 sets each · Rest 45 sec between"),
+      React.createElement("div",{style:{display:'flex',alignItems:'center',gap:8,marginTop:8}},
+        React.createElement('span',{style:{background:phaseColor,color:'white',borderRadius:20,padding:'3px 12px',fontSize:11,fontWeight:800}},'Week '+week+' · '+phaseLabel)
+      ),
       !isLog&&React.createElement("div",null,
         React.createElement("div",{style:{marginTop:10,background:"rgba(255,255,255,0.25)",borderRadius:8,height:8}},
           React.createElement("div",{style:{background:"white",borderRadius:8,height:8,width:pct+"%",transition:"width 0.3s"}})
         ),
-        React.createElement("div",{style:{fontSize:12,opacity:0.85,marginTop:4}},done+" of "+EXERCISES.length+" exercises complete"+(done===EXERCISES.length?" ✅ DONE!":""))
+        React.createElement("div",{style:{fontSize:12,opacity:0.85,marginTop:4}},done+" of "+exercises.length+" complete"+(done===exercises.length?" ✅ DONE!":""))
       )
     ),
 
     React.createElement("div",{style:{display:"flex",background:"#1a0030",borderRadius:10,padding:4,marginBottom:12,gap:4}},
       React.createElement("button",{onClick:function(){setMainTab('workout');},style:{flex:1,padding:"9px 4px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,background:!isLog?"#7c3aed":"transparent",color:!isLog?"white":"#9ca3af"}},"🏋️ Workout"),
       React.createElement("button",{onClick:function(){setMainTab('log');setHistRefresh(function(x){return x+1;});},style:{flex:1,padding:"9px 4px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,background:isLog?"#7c3aed":"transparent",color:isLog?"white":"#9ca3af"}},"📅 Log History")
+    ),
+
+    !isLog&&React.createElement('div',{style:{marginBottom:14}},
+      React.createElement('div',{style:{fontSize:11,color:'#6b7280',fontWeight:700,marginBottom:8,letterSpacing:1}},'SELECT WEEK'),
+      React.createElement('div',{className:'week-grid'},
+        [1,2,3,4,5,6,7,8,9,10,11,12].map(function(w){
+          var pc=getPhaseColor(w);var isCur=w===week;
+          return React.createElement('button',{key:w,className:'week-btn',onClick:function(){setWeek(w);},
+            style:{background:isCur?pc:'#0a0010',color:isCur?'white':pc,borderColor:pc}},
+            React.createElement('div',null,'Wk '+w),
+            React.createElement('div',{style:{fontSize:9,opacity:0.8}},getPhaseLabel(w).slice(0,3).toUpperCase())
+          );
+        })
+      )
     ),
 
     !isLog&&React.createElement('div',null,
@@ -364,9 +514,9 @@ function App(){
       React.createElement("div",{style:{background:"#1a0030",borderRadius:8,padding:"10px 14px",fontSize:12,color:isHome?"#4ade80":"#f9a8d4",marginBottom:14,fontWeight:600}},
         "📅 Tuesday & Thursday · After Goddess Training · Tap each exercise when complete"
       ),
-      EXERCISES.map(function(ex,i){
-        var ckey=mode+"-"+i,ekey=mode+"-e-"+i,lkey=mode+"-l-"+i;
-        return React.createElement(Card,{key:i,ex:ex,isDone:!!checked[ckey],isOpen:!!expanded[ekey],showLog:!!logOpen[lkey],isHome:isHome,logDate:logDate,
+      exercises.map(function(ex,i){
+        var ckey=mode+"-"+week+"-"+i,ekey=mode+"-"+week+"-e-"+i,lkey=mode+"-"+week+"-l-"+i;
+        return React.createElement(Card,{key:ex.name+i,ex:ex,isDone:!!checked[ckey],isOpen:!!expanded[ekey],showLog:!!logOpen[lkey],isHome:isHome,logDate:logDate,
           onCheck:function(){ck(ckey);},
           onExpand:function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();ek(ekey);},
           onToggleLog:function(){lk(lkey);},
